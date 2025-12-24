@@ -49,7 +49,7 @@ SOURCES = [
 
 OUTPUT_FILE = "sorted_configs.txt"
 TIMEOUT = 1.5
-MAX_WORKERS = 150 # بهینه شده برای GitHub Actions
+MAX_WORKERS = 200 # بهینه شده برای GitHub Actions
 
 def is_reality(link):
     """فیلتر اختصاصی برای جدا کردن پروتکل Reality"""

@@ -49,100 +49,105 @@ SOURCES = [
 
 OUTPUT_FILE = "sorted_configs.txt"
 TIMEOUT = 1.5
-MAX_WORKERS = 150 # تعداد ورکر بهینه برای رانر گیتهاب
+MAX_WORKERS = 150 # بهینه شده برای GitHub Actions
 
 def is_reality(link):
-    """فیلتر اختصاصی پروتکل Reality"""
+    """فیلتر اختصاصی برای جدا کردن پروتکل Reality"""
     return "security=reality" in link.lower()
 
+def smart_deduplicate(links):
+    """حذف تکراری‌ها بر اساس آدرس و UUID، نادیده گرفتن نام سرور"""
+    unique_configs = {}
+    for link in links:
+        # حذف نام سرور بعد از علامت #
+        tech_part = link.split('#')[0]
+        if tech_part not in unique_configs:
+            unique_configs[tech_part] = link
+    return list(unique_configs.values())
+
 def fetch_and_decode(url):
-    """دانلود و استخراج لینک‌های Reality"""
-    links = []
+    """دانلود و رمزگشایی لینک‌ها از منابع"""
     try:
         response = requests.get(url, timeout=15)
         if response.status_code == 200:
             content = response.text.strip()
-            # اگر محتوا Base64 باشد
+            # اگر محتوا احتمالاً Base64 باشد (فاقد پروتکل مستقیم)
             if "vless://" not in content[:50]:
                 try:
                     content = base64.b64decode(content).decode('utf-8')
                 except: pass
             
-            # استخراج با Regex و فیلتر Reality
             raw_vless = re.findall(r"vless://[^\s]+", content)
-            links = [l for l in raw_vless if is_reality(l)]
-    except Exception: pass
-    return links
-
-def get_address(link):
-    """استخراج IP و Port"""
-    try:
-        match = re.search(r"@([^:/?#]+):(\d+)", link)
-        if match:
-            return match.group(1), int(match.group(2))
+            # فیلتر کردن فقط Realityها در مرحله استخراج
+            return [l for l in raw_vless if is_reality(l)]
     except: pass
-    return None, None
+    return []
 
 def test_config(link):
-    """تست پینگ و پکت‌لاس"""
-    ip, port = get_address(link)
-    if not ip: return None
+    """تست پینگ و پکت‌لاس در 4 مرحله"""
+    match = re.search(r"@([^:/?#]+):(\d+)", link)
+    if not match: return None
+    ip, port = match.group(1), int(match.group(2))
 
-    latencies = []
-    lost = 0
-    rounds = 4
-
-    for _ in range(rounds):
+    latencies, lost = [], 0
+    for _ in range(4):
         try:
             start = time.perf_counter()
-            # ایجاد یک کانکشن TCP سریع
-            sock = socket.create_connection((ip, port), timeout=TIMEOUT)
-            latencies.append((time.perf_counter() - start) * 1000)
-            sock.close()
-        except (socket.timeout, OSError):
+            with socket.create_connection((ip, port), timeout=TIMEOUT) as sock:
+                latencies.append((time.perf_counter() - start) * 1000)
+        except:
             lost += 1
-        time.sleep(0.02)
+        time.sleep(0.01)
 
-    loss_pct = (lost / rounds) * 100
-    if loss_pct == 100: return None # حذف کانفیگ‌های کاملا قطع
+    loss_pct = (lost / 4) * 100
+    if loss_pct == 100: return None # حذف سرورهای کاملاً خاموش
 
     avg_ping = sum(latencies) / len(latencies) if latencies else 9999
-    # امتیاز نهایی: پکت لاس وزن بسیار بالایی دارد (1000)
+    # امتیاز: اولویت با پایداری (پکت‌لاس صفر) و سپس سرعت (پینگ کمتر)
     score = avg_ping + (loss_pct * 1000)
-    
     return {"link": link, "score": score}
 
 def main():
-    print("--- Starting yekyek Sorter ---")
-    all_reality_links = []
+    start_all = time.time()
+    print("🚀 [1/4] Harvesting Reality configs from sources...")
     
-    # 1. جمع‌آوری اطلاعات از تمام لینک‌ها به صورت همزمان
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as loader:
+    all_raw_reality = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as loader:
         results = list(loader.map(fetch_and_decode, SOURCES))
-        for r in results:
-            all_reality_links.extend(r)
+        for r in results: all_raw_reality.extend(r)
     
-    unique_links = list(set(all_reality_links))
-    print(f"Total Reality configs found: {len(unique_links)}")
+    print(f"📦 Total Reality links found: {len(all_raw_reality)}")
 
-    # 2. تست پایداری و پینگ
+    print("🔍 [2/4] Executing Smart Deduplication...")
+    unique_links = smart_deduplicate(all_raw_reality)
+    print(f"💎 Unique configs to test: {len(unique_links)} (Removed {len(all_raw_reality)-len(unique_links)} duplicates)")
+
+    print(f"⚡ [3/4] Testing {len(unique_links)} configs with {MAX_WORKERS} workers...")
+    
     final_list = []
+    tested = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as tester:
-        future_to_link = {tester.submit(test_config, l): l for l in unique_links}
-        for future in concurrent.futures.as_completed(future_to_link):
-            res = future.result()
-            if res:
-                final_list.append(res)
+        futures = {tester.submit(test_config, l): l for l in unique_links}
+        for f in concurrent.futures.as_completed(futures):
+            tested += 1
+            res = f.result()
+            if res: final_list.append(res)
+            
+            # چاپ گزارش زنده هر 100 تست
+            if tested % 100 == 0 or tested == len(unique_links):
+                print(f"⏱️ Progress: {tested}/{len(unique_links)} | Found {len(final_list)} alive")
 
-    # 3. مرتب‌سازی (امتیاز کمتر = کیفیت بهتر)
+    print("📊 [4/4] Ranking and Saving results...")
+    # مرتب‌سازی بر اساس امتیاز (کمترین امتیاز بهترین است)
     sorted_configs = sorted(final_list, key=lambda x: x['score'])
 
-    # 4. ذخیره خروجی نهایی
     with open(OUTPUT_FILE, "w") as f:
         for item in sorted_configs:
             f.write(item['link'] + "\n")
 
-    print(f"Success! {len(sorted_configs)} sorted configs saved in {OUTPUT_FILE}")
+    end_all = time.time()
+    print(f"✅ [FINISHED] Process completed in {round(end_all - start_all, 2)} seconds.")
+    print(f"🏆 Best configs are at the top of '{OUTPUT_FILE}'. Total healthy: {len(final_list)}")
 
 if __name__ == "__main__":
     main()

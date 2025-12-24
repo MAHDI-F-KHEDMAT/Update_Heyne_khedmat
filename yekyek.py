@@ -8,6 +8,11 @@ import base64
 # لیست کامل منابع ارسالی شما
 SOURCES = [
     "https://raw.githubusercontent.com/itsyebekhe/PSG/main/subscriptions/xray/base64/mix",
+    "https://raw.githubusercontent.com/shuaidaoya/FreeNodes/refs/heads/main/nodes/base64.txt",
+    "https://raw.githubusercontent.com/Flikify/Free-Node/refs/heads/main/v2ray.txt",
+    "https://raw.githubusercontent.com/mfuu/v2ray/refs/heads/master/v2ray",
+    "https://raw.githubusercontent.com/w154594742/free-v2ray-node/refs/heads/master/v2ray.txt",
+    "https://raw.githubusercontent.com/w154594742/freeNode/refs/heads/main/all.txt",
     "https://raw.githubusercontent.com/shaoyouvip/free/refs/heads/main/base64.txt",
     "https://raw.githubusercontent.com/telegeam/freenode/refs/heads/master/v2ray.txt",
     "https://raw.githubusercontent.com/DukeMehdi/FreeList-V2ray-Configs/refs/heads/main/Configs/VLESS-V2Ray-Configs-By-DukeMehdi.txt",

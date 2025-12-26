@@ -8,6 +8,7 @@ import base64
 # لیست کامل منابع ارسالی شما
 SOURCES = [
     "https://raw.githubusercontent.com/itsyebekhe/PSG/main/subscriptions/xray/base64/mix",
+    "https://raw.githubusercontent.com/kort0881/vpn-vless-configs-russia/refs/heads/main/githubmirror/new/all_new.txt",
     "https://raw.githubusercontent.com/shuaidaoya/FreeNodes/refs/heads/main/nodes/base64.txt",
     "https://raw.githubusercontent.com/Flikify/Free-Node/refs/heads/main/v2ray.txt",
     "https://raw.githubusercontent.com/mfuu/v2ray/refs/heads/master/v2ray",

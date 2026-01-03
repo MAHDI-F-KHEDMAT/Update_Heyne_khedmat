@@ -4,6 +4,7 @@ import time
 import re
 import requests
 import base64
+import random # اضافه شده برای تولید عدد تصادفی
 
 # لیست کامل منابع ارسالی شما
 SOURCES = [
@@ -151,8 +152,18 @@ def main():
     sorted_configs = sorted(final_list, key=lambda x: x['score'])
 
     with open(OUTPUT_FILE, "w") as f:
+        used_numbers = set() # برای اطمینان از منحصر به فرد بودن اعداد
         for item in sorted_configs:
-            f.write(item['link'] + "\n")
+            # تولید عدد ۵ رقمی غیر تکراری
+            while True:
+                random_id = random.randint(10000, 99999)
+                if random_id not in used_numbers:
+                    used_numbers.add(random_id)
+                    break
+            
+            # جدا کردن بخش فنی لینک و چسباندن عدد تصادفی به عنوان نام
+            clean_link = item['link'].split('#')[0]
+            f.write(f"{clean_link}#{random_id}\n")
 
     end_all = time.time()
     print(f"✅ [FINISHED] Process completed in {round(end_all - start_all, 2)} seconds.")
